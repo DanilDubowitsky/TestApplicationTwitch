@@ -7,8 +7,11 @@ import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.testapplication.db.DbManager
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import retrofit2.Call
 import retrofit2.Response
+import java.util.*
 
 class TopGamesActivity : AppCompatActivity() {
     lateinit var recyclerView:RecyclerView
@@ -44,22 +47,30 @@ class TopGamesActivity : AppCompatActivity() {
     }
     fun getFromDb():ArrayList<Game>{
         dbManager.openDb()
-        var list:ArrayList<Game>
-        list = dbManager.readDbData()
+        var list:ArrayList<Game> = dbManager.readDbData()
         dbManager.closeDb()
         return list
     }
+
+    fun initRecycle(list: ArrayList<Game>){
+        recyclerView.adapter = RecycleAdapter(list)
+        (recyclerView.adapter as RecycleAdapter).notifyDataSetChanged()
+    }
+
     fun getGames(){
         NetworkService.getInstance().jsonApi.getTopGames(100,Constants.accept,Constants.clientId).
                 enqueue(object:retrofit2.Callback<GamesModel>{
                     override fun onFailure(call: Call<GamesModel>, t: Throwable) {
                         Toast.makeText(applicationContext,"Приложение работает в офлайн режиме, данные загружены из локальной БД",Toast.LENGTH_LONG).show()
+                        lateinit var list: ArrayList<Game>
                         pg.visibility = ProgressBar.INVISIBLE
-                        var list:ArrayList<Game> = getFromDb()
-                        recyclerView.adapter = RecycleAdapter(list)
-                        (recyclerView.adapter as RecycleAdapter).notifyDataSetChanged()
+                        runBlocking{
+                            launch {
+                                list = getFromDb()
+                                initRecycle(list)
+                            }
+                        }
                     }
-
                     override fun onResponse(call: Call<GamesModel>, response: Response<GamesModel>) {
                             gameList = response.body()?.top ?: ArrayList()
 
